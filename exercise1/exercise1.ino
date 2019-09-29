@@ -64,8 +64,10 @@ void setup() {
 }
 
 void loop() {
+  noInterrupts();
   updateState();
   cleanControlVariables();
+  interrupts();
   performState();
 }
 
@@ -78,7 +80,6 @@ void cleanControlVariables(){
 }
 
 void updateState(){
-  noInterrupts();
   switch(state){
     case OFF:
       if(upPressed){
@@ -119,7 +120,6 @@ void updateState(){
       }
       break;
   }
-  interrupts();
 }
 
 void performState(){
