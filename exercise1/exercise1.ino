@@ -80,7 +80,7 @@ void cleanControlVariables(){
 void updateState(){
   noInterrupts();
   switch(state){
-    case(OFF):
+    case OFF:
       if(upPressed){
         state = PULSED;
       }
@@ -91,13 +91,13 @@ void updateState(){
         state = SPRINKLING;
       }
       break;
-    case(SINGLE):
+    case SINGLE:
       state = OFF;
       break;
-    case(SPRINKLING):
+    case SPRINKLING:
       state = OFF;
       break;
-    case(PULSED):
+    case PULSED:
       if(upPressed){
         state = SLOW;
       }
@@ -105,7 +105,7 @@ void updateState(){
         state = OFF;
       }
       break;
-    case(SLOW):
+    case SLOW:
       if(upPressed){
         state = FAST;
       }
@@ -113,7 +113,7 @@ void updateState(){
         state = PULSED;
       }
       break;
-    case(FAST):
+    case FAST:
       if(downPressed){
         state = SLOW;
       }
