@@ -156,7 +156,7 @@ void show_time(uint16_t sec){
 void btnPressedInterrupt(){
   stateChanged = true;
   btnPressed = true;
-  unsigned long startTimeMillis = millis();
+  volatile unsigned long startTimeMillis = millis();
   while(digitalRead(BTN) == HIGH);
   if(millis() - startTimeMillis > BTN_PRESS_DELAY_SEC * 1000){
     btnPressedForMoreTime = true;
