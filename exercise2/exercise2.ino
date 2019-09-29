@@ -1,3 +1,17 @@
+
+/*
+Copyright 2019 Agnese Salutari.
+Licensed under the Apache License, Version 2.0 (the "License"); 
+you may not use this file except in compliance with the License. 
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on 
+an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
+See the License for the specific language governing permissions and limitations under the License
+*/
+
 //#include <TM1637.h> // TODO
 
 // Signals:
@@ -47,10 +61,7 @@ bool timeOver;
 
 void setup() {
   noInterrupts();
-  stateChanged = false;
-  btnPressed = false;
-  btnPressedForMoreTime = false;
-  clkDtRotation = false;
+  cleanControlVariables();
   heat = HEAT_DEFAULT;
   countdownMillis = COUNTDOWN_DEFAULT_SEC * 1000;
   pinMode(BTN, INPUT_PULLUP);
@@ -145,8 +156,9 @@ void show_time(uint16_t sec){
 void btnPressedInterrupt(){
   stateChanged = true;
   btnPressed = true;
-  delay(BTN_PRESS_DELAY_SEC * 1000);
-  if(digitalRead(BTN) == HIGH){
+  unsigned long startTimeMillis = millis();
+  while(digitalRead(BTN) == HIGH);
+  if(millis() - startTimeMillis > BTN_PRESS_DELAY_SEC * 1000){
     btnPressedForMoreTime = true;
   }
 }
@@ -160,7 +172,7 @@ void stdby(){
 }
 
 void incrTime(){
-  if(countdownMillis <= (COUNTDOWN_MAX_SEC - COUNTDOWN_INCR_SEC)){
+  if(countdownMillis <= (COUNTDOWN_MAX_SEC - COUNTDOWN_INCR_SEC) * 1000){
     countdownMillis += COUNTDOWN_INCR_SEC * 1000;
   }
 }
@@ -220,7 +232,7 @@ void displayOn(){
   digitalWrite(HEATER, HIGH);
   setBrightness((uint8_t)BRIGHTNESS_MAX);
   show_duty(heat);
-  delay(SHOW_T_SEC);
+  while((!stateChanged) && (millis() - startTimeMillis <= SHOW_T_SEC * 1000));
   while((!stateChanged) && ((millis() - startTimeMillis) < (DISPLAY_ON_T_SEC * 1000))){
     if(millis() - startTimeMillis <= (countdownMillis - BUZZING_T_TO_TIMEOVER * 1000)){
       buzzingTime = true;
