@@ -12,18 +12,18 @@ an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express o
 See the License for the specific language governing permissions and limitations under the License
 */
 
-//#include <TM1637.h> // TODO
+//#include <TM1637.h> // Not used for this exercise
 
 // Signals:
-#define BTN 2
-#define CLK 3
-#define DT 4
-#define BUZZER 5
-#define HEATER 6
+#define BTN 4 // LOW when active, HIGH otherwise
+#define CLK 2 // LOW when active, HIGH otherwise
+#define DT 3 // LOW when active, HIGH otherwise
+#define BUZZER 5 // HIGH when activated, LOW otherwise
+#define HEATER 6 // HIGH when activated, LOW otherwise
 
 // Display Pins:
-// #define DISP_1 12 // TODO
-// #define DISP_2 13 // TODO
+// #define DISP_1 12 // Not used for this exercise
+// #define DISP_2 13 // Not used for this exercise
 
 // States:
 #define STDBY 0
@@ -36,89 +36,94 @@ See the License for the specific language governing permissions and limitations 
 #define BRIGHTNESS_IDLE 0
 #define BRIGHTNESS_MAX 255
 #define HEAT_DEFAULT 50 // %
-#define COUNTDOWN_DEFAULT_SEC 1800 // seconds
-#define COUNTDOWN_INCR_SEC 1800 // seconds
-#define COUNTDOWN_MAX_SEC 36000 // seconds (has to be <= 65535)
+#define TOTAL_T_DEFAULT_SEC 1800 // seconds
+#define TOTAL_T_INCR_SEC 1800 // seconds
+#define TOTAL_T_MAX_SEC 36000 // seconds (has to be <= 65535)
 #define DISPLAY_ON_T_SEC 10 // seconds
 #define SHOW_T_SEC 2 // seconds
 #define BUZZING_T_SEC 10 // seconds
-#define BUZZING_T_TO_TIMEOVER 10 // seconds
 
 //Global Variables:
 uint8_t state;
-uint8_t heat;
-unsigned long countdownMillis;
-//TM1637 display(DISP_1, DISP_2); // TODO
+volatile uint8_t heat;
+unsigned long remainingTimeMillis;
+//TM1637 display(DISP_1, DISP_2); // Not used in this exercise
 
 //Global Control Variables:
-bool btnPressed;
-bool btnPressedForMoreTime;
-bool stateChanged;
+unsigned long btnPressedStartTMillis;
+unsigned long btnPressedEndTMillis;
+volatile bool stateChanged;
 bool clkDtRotation;
-bool buzzingTime;
-bool timeOver;
+uint8_t clk;
+uint8_t dt;
 
 
 void setup() {
   noInterrupts();
   cleanControlVariables();
   heat = HEAT_DEFAULT;
-  countdownMillis = COUNTDOWN_DEFAULT_SEC * 1000;
-  pinMode(BTN, INPUT_PULLUP);
+  remainingTimeMillis = TOTAL_T_DEFAULT_SEC * 1000;
+  pinMode(BTN, INPUT);
   pinMode(CLK, INPUT);
   pinMode(DT, INPUT);
   pinMode(BUZZER, OUTPUT);
   pinMode(HEATER, OUTPUT);
+  attachInterrupt(digitalPinToInterrupt(CLK), rotationInterrupt, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(DT), rotationInterrupt, CHANGE);
   interrupts();
-  stdby();
+  state = STDBY;
 }
 
 void loop() {
-  noInterrupts();
   updateState();
   cleanControlVariables();
-  interrupts();
   performState();
 }
 
 void cleanControlVariables(){
-  btnPressed = false;
-  btnPressedForMoreTime = false;
+  btnPressedStartTMillis = 0;
+  btnPressedEndTMillis = 0;
   stateChanged = false;
   clkDtRotation = false;
-  buzzingTime= false;
-  timeOver = false;
+  clk = digitalRead(CLK);
+  dt = digitalRead(dt);
 }
 
 void updateState(){
-  if(btnPressedForMoreTime){
-    state = STDBY;
-    return;
-  }
-  else if(buzzingTime){
-    state = BUZZING;
-    return;
+  if(btnPressedStartTMillis != 0 && btnPressedEndTMillis != 0){
+    if(btnPressedEndTMillis - btnPressedStartTMillis >= BTN_PRESS_DELAY_SEC * 1000){
+      state = STDBY;
+      return;
+    }
+    else{
+      if(state == DISPLAY_ON){
+        incrTime();
+      }
+      else{
+        state = DISPLAY_ON;
+      }
+      return;
+    }
   }
   else{
     switch(state){
-      case STDBY:
-        if(btnPressed){
-          state = DISPLAY_ON;
-        }
-        break;
       case DISPLAY_ON:
-        if(btnPressed){
-          incrTime();
+        if(!clkDtRotation){
+          state = DISPLAY_OFF;
         }
-        else state = DISPLAY_OFF;
         break;
       case DISPLAY_OFF:
-        if(btnPressed || clkDtRotation){
+        if(clkDtRotation){
           state = DISPLAY_ON; 
         }
         break;
       case BUZZING:
-        state = STDBY;
+        if(clkDtRotation){
+          state = DISPLAY_ON; 
+        }
+        else{
+          state = STDBY;
+        }
         break;
     }    
   }
@@ -153,34 +158,30 @@ void show_time(uint16_t sec){
   // TODO
 }
 
-void btnPressedInterrupt(){
-  stateChanged = true;
-  btnPressed = true;
-  volatile unsigned long startTimeMillis = millis();
-  while(digitalRead(BTN) == HIGH);
-  if(millis() - startTimeMillis > BTN_PRESS_DELAY_SEC * 1000){
-    btnPressedForMoreTime = true;
-  }
-}
 
 void stdby(){
-  state = STDBY;
   digitalWrite(BUZZER, LOW);
   digitalWrite(HEATER, LOW);
   setBrightness((uint8_t)BRIGHTNESS_IDLE);
   while(!stateChanged);
 }
 
+void rotationInterrupt(){
+  stateChanged = true;
+  clkDtRotation = true;
+  uint8_t newClk = digitalRead(CLK);
+  uint8_t newDt = digitalRead(DT);
+  changeHeat(newClk, newDt);
+}
+
 void incrTime(){
-  if(countdownMillis <= (COUNTDOWN_MAX_SEC - COUNTDOWN_INCR_SEC) * 1000){
-    countdownMillis += COUNTDOWN_INCR_SEC * 1000;
+  if(remainingTimeMillis <= (TOTAL_T_MAX_SEC - TOTAL_T_INCR_SEC) * 1000){
+    remainingTimeMillis += TOTAL_T_INCR_SEC * 1000;
   }
 }
 
-void changeHeat(uint8_t oldCLK, uint8_t oldDT, uint8_t newCLK, uint8_t newDT){
-  stateChanged = true;
-  clkDtRotation = true;
-  if(oldCLK == LOW && oldDT == LOW){
+void changeHeat(uint8_t newCLK, uint8_t newDT){
+  if(clk == LOW && dt == LOW){
     if(newCLK == HIGH){
         heat += 10;
         heat %= 100;
@@ -190,7 +191,7 @@ void changeHeat(uint8_t oldCLK, uint8_t oldDT, uint8_t newCLK, uint8_t newDT){
         heat %= 100;
     }
   }
-  else if(oldCLK == LOW && oldDT == HIGH){
+  else if(clk == LOW && dt == HIGH){
     if(newDT == LOW){
       heat += 10;
       heat %= 100;
@@ -200,7 +201,7 @@ void changeHeat(uint8_t oldCLK, uint8_t oldDT, uint8_t newCLK, uint8_t newDT){
       heat %= 100;
     }
   }
-  else if(oldCLK == HIGH && oldDT == LOW){
+  else if(clk == HIGH && dt == LOW){
     if(newDT == HIGH){
       heat += 10;
       heat %= 100;
@@ -222,58 +223,60 @@ void changeHeat(uint8_t oldCLK, uint8_t oldDT, uint8_t newCLK, uint8_t newDT){
   }
 }
 
-void displayOn(){
-  state = DISPLAY_ON;
-  uint8_t oldCLK = digitalRead(CLK);
-  uint8_t oldDT = digitalRead(DT);
-  uint8_t newCLK;
-  uint8_t newDT;
-  unsigned long startTimeMillis = millis();
+void applyHeat(){
   digitalWrite(HEATER, HIGH);
+  delay(heat * 10);
+  digitalWrite(HEATER, LOW);
+  delay(1000 - heat * 10);
+}
+
+bool checkBtn(){
+  bool pressed = false;
+  if(!digitalRead(BTN)){ // If BTN is LOW = active
+    pressed = true;
+    btnPressedStartTMillis = millis();
+    while(!digitalRead(BTN));
+    btnPressedEndTMillis = millis();
+  }
+  return pressed;
+}
+
+void displayOn(){
+  unsigned long startTimeMillis = millis();
+  unsigned long countdownMillis;
   setBrightness((uint8_t)BRIGHTNESS_MAX);
   show_duty(heat);
-  while((!stateChanged) && (millis() - startTimeMillis <= SHOW_T_SEC * 1000));
-  while((!stateChanged) && ((millis() - startTimeMillis) < (DISPLAY_ON_T_SEC * 1000))){
-    if(millis() - startTimeMillis <= (countdownMillis - BUZZING_T_TO_TIMEOVER * 1000)){
-      buzzingTime = true;
-      return;
+  while(!stateChanged){ // While stateChange is false
+    remainingTimeMillis -= millis();
+    show_time((uint16_t)countdownMillis * 1000);
+    applyHeat();
+    if(checkBtn || millis() - startTimeMillis > DISPLAY_ON_T_SEC * 1000){ // If btn has been pressed or spent time is more than DISPLAY_ON_T_SEC * 1000
+      stateChanged = true;
     }
-    show_time((uint16_t)(countdownMillis / 1000));
-    newCLK = digitalRead(CLK);
-    newDT = digitalRead(DT);
-    if(newCLK != oldCLK || newDT != oldDT){
-      changeHeat(oldCLK, oldDT, newCLK, newDT);
-      return;
-    }
-    countdownMillis -= millis() - startTimeMillis;
   }
 }
 
 void displayOff(){
-  state = DISPLAY_OFF;
-  uint8_t oldCLK = digitalRead(CLK);
-  uint8_t oldDT = digitalRead(DT);
-  uint8_t newCLK;
-  uint8_t newDT;
   unsigned long startTimeMillis = millis();
   setBrightness((uint8_t)BRIGHTNESS_IDLE);
-  while((!stateChanged) && (millis() - startTimeMillis <= countdownMillis - BUZZING_T_TO_TIMEOVER * 1000)){
-    newCLK = digitalRead(CLK);
-    newDT = digitalRead(DT);
-    if(newCLK != oldCLK || newDT != oldDT){
-      changeHeat(oldCLK, oldDT, newCLK, newDT);
-      return;
+  while(!stateChanged){
+    applyHeat();
+    remainingTimeMillis -= millis();
+    if(checkBtn || remainingTimeMillis <= BUZZING_T_SEC * 1000){ // If it's buzzing time
+      stateChanged = true;
     }
-    countdownMillis -= millis() - startTimeMillis;
   }
-  buzzingTime = true;
 }
 
 void buzzing(){
-  state = BUZZING;
-  buzzingTime = false;
   unsigned long startTimeMillis = millis();
   digitalWrite(BUZZER, HIGH);
-  while((!stateChanged) && (millis() - startTimeMillis <= BUZZING_T_SEC * 1000));
-  digitalWrite(BUZZER, LOW);
+  while(!stateChanged){
+    applyHeat();
+    remainingTimeMillis -= millis();
+    if(checkBtn || remainingTimeMillis <= 0){ // If it's end time
+      stateChanged = true;
+      digitalWrite(BUZZER, LOW);
+    }
+  }
 }
