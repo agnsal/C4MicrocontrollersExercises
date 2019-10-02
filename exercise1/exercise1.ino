@@ -40,9 +40,9 @@ uint8_t state;
 unsigned long lastSingleTimeMillis;
 
 // Global Control Variables:
-bool stateChanged; // true when state is changed, false otherwise
-bool upPressed; // true when pressed, false otherwise
-bool downPressed; // true when pressed, false otherwise
+volatile bool stateChanged; // true when state is changed, false otherwise
+volatile bool upPressed; // true when pressed, false otherwise
+volatile bool downPressed; // true when pressed, false otherwise
 bool backPressed; // true when pressed, false otherwise
 bool motorAuth; // true when motor is authorized to move, false otherwise
 
@@ -51,23 +51,24 @@ void setup() {
   noInterrupts();
   cleanControlVariables();
   lastSingleTimeMillis = 0;
-  pinMode(UP, INPUT_PULLUP);
-  pinMode(DOWN, INPUT_PULLUP);
-  pinMode(BACK, INPUT_PULLUP);
+  pinMode(UP, INPUT);
+  pinMode(DOWN, INPUT);
+  pinMode(BACK, INPUT);
   pinMode(HOME_POS, INPUT);
   pinMode(SPRINKLER, OUTPUT);
   pinMode(MOTOR, OUTPUT);
   attachInterrupt(digitalPinToInterrupt(UP), upInterrupt, RISING);
   attachInterrupt(digitalPinToInterrupt(DOWN), downInterrupt, RISING);
   interrupts();
-  off();
+  state = OFF;
+  cleanControlVariables();
+  goMotor1Round(SLOW_MOTOR); // To go in Home Position by default.
+  
 }
 
 void loop() {
-  noInterrupts();
   updateState();
   cleanControlVariables();
-  interrupts();
   performState();
 }
 
@@ -156,17 +157,16 @@ void downInterrupt(){
 }
 
 void goMotor1Round(uint8_t vel){
-  while(motorAuth || (!digitalRead(HOME_POS))){
-    motorAuth = false;
-    analogWrite(MOTOR, vel);
+  if(!motorAuth && digitalRead(HOME_POS)){
+    return;
   }
+  analogWrite(MOTOR, vel);
+  while(digitalRead(HOME_POS));
+  while(!digitalRead(HOME_POS));
   analogWrite(MOTOR, IDLE_MOTOR); 
 }
 
 void off(){
-  state = OFF;
-  motorAuth = false;
-  goMotor1Round(SLOW_MOTOR); // To go in Home Position by default.
   while((!stateChanged) && (!backPressed)){
     if(digitalRead(BACK)){
       backPressed = true;
@@ -176,14 +176,12 @@ void off(){
 }
 
 void single(){
-  state = SINGLE;
   lastSingleTimeMillis = millis();
   motorAuth = true;
   goMotor1Round(FAST_MOTOR); 
 }
 
 void sprinkling(){
-  state = SPRINKLING;
   digitalWrite(SPRINKLER, HIGH);
   for(uint8_t i = 0; (i < SPRINKLING_ROUNDS) && (!stateChanged); i++){
     motorAuth = true;
@@ -193,7 +191,6 @@ void sprinkling(){
 }
 
 void pulsed(){
-  state = PULSED;
   unsigned long startTimeMillis = millis();
   unsigned long deltaTMillis = STANDARD_PULSE_T_SEC * 1000;
   if(lastSingleTimeMillis < deltaTMillis){
@@ -207,7 +204,6 @@ void pulsed(){
 }
 
 void slow(){
-  state = SLOW;
   while(!stateChanged){
     motorAuth = true;
     goMotor1Round(SLOW_MOTOR);
@@ -215,7 +211,6 @@ void slow(){
 }
 
 void fast(){
-  state = FAST;
   while(!stateChanged){
     motorAuth = true;
     goMotor1Round(FAST_MOTOR);
