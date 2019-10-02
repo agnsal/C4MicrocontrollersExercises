@@ -61,9 +61,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(DOWN), downInterrupt, RISING);
   interrupts();
   state = OFF;
-  cleanControlVariables();
-  goMotor1Round(SLOW_MOTOR); // To go in Home Position by default.
-  
+  goMotor1Round(SLOW_MOTOR); // To go in Home Position by default. 
 }
 
 void loop() {
