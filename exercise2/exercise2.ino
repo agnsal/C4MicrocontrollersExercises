@@ -108,7 +108,10 @@ void updateState(){
   else{
     switch(state){
       case DISPLAY_ON:
-        if(!clkDtRotation){
+        if(clkDtRotation){
+          changeHeat();
+        }
+        else{
           state = DISPLAY_OFF;
         }
         break;
@@ -169,9 +172,6 @@ void stdby(){
 void rotationInterrupt(){
   stateChanged = true;
   clkDtRotation = true;
-  uint8_t newClk = digitalRead(CLK);
-  uint8_t newDt = digitalRead(DT);
-  changeHeat(newClk, newDt);
 }
 
 void incrTime(){
@@ -180,9 +180,11 @@ void incrTime(){
   }
 }
 
-void changeHeat(uint8_t newCLK, uint8_t newDT){
+void changeHeat(){
+  uint8_t newClk = digitalRead(CLK);
+  uint8_t newDt = digitalRead(DT);
   if(clk == LOW && dt == LOW){
-    if(newCLK == HIGH){
+    if(newClk == HIGH){
         heat += 10;
         heat %= 100;
       }
@@ -192,7 +194,7 @@ void changeHeat(uint8_t newCLK, uint8_t newDT){
     }
   }
   else if(clk == LOW && dt == HIGH){
-    if(newDT == LOW){
+    if(newDt == LOW){
       heat += 10;
       heat %= 100;
     }
@@ -202,7 +204,7 @@ void changeHeat(uint8_t newCLK, uint8_t newDT){
     }
   }
   else if(clk == HIGH && dt == LOW){
-    if(newDT == HIGH){
+    if(newDt == HIGH){
       heat += 10;
       heat %= 100;
     }
@@ -212,7 +214,7 @@ void changeHeat(uint8_t newCLK, uint8_t newDT){
     }
   }
   else{ // Case 1 1
-    if(newCLK == LOW){
+    if(newClk == LOW){
       heat += 10;
       heat %= 100;
     }
