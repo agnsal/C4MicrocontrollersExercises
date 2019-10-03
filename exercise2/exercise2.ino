@@ -77,7 +77,6 @@ void setup() {
 void loop() {
   updateState();
   cleanControlVariables();
-  Serial.println(state);
   performState();
 }
 
@@ -266,7 +265,7 @@ void displayOff(){
   setBrightness((uint8_t)BRIGHTNESS_IDLE);
   while(!stateChanged){
     applyHeat();
-    if(checkBtn || millis() >= endTimeMillis - (unsigned long)BUZZING_T_SEC * 1000){ // If it's buzzing time
+    if(checkBtn || millis() >= endTimeMillis - (unsigned long)BUZZING_T_SEC * 1000){ // If button has been pressed or it's buzzing time
       stateChanged = true;
     }
   }
@@ -276,7 +275,7 @@ void buzzing(){
   digitalWrite(BUZZER, HIGH);
   while(!stateChanged){
     applyHeat();
-    if(checkBtn ||millis() >= endTimeMillis){ // If it's end time
+    if(checkBtn ||millis() >= endTimeMillis){ // If button has been pressed or it's end time
       stateChanged = true;
       digitalWrite(BUZZER, LOW);
     }
