@@ -1,6 +1,8 @@
 # C4MicrocontrollersExercises
 Some C for Microcontrollers exercises (performed on Arduino Nano).
 
+![](/exercise3/HW.jpg)
+
 ![](/HWTest/HW2.jpg)
 
 
