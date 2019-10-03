@@ -12,13 +12,13 @@ an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express o
 See the License for the specific language governing permissions and limitations under the License
 */
 
-#include <TM1637.h> // https://github.com/AKJ7/TM1637
+#include <TM1637Display.h> // https://github.com/avishorp/TM1637
 
 
 // Signals:
-#define SW 4 // LOW when active, HIGH otherwise
-#define CLK 2 // LOW when active, HIGH otherwise
-#define DT 3 // LOW when active, HIGH otherwise
+#define SW 4 
+#define CLK 2 
+#define DT 3 
 #define GREEN_LED 5 // HIGH when activated, LOW otherwise
 #define RED_LED 6 // HIGH when activated, LOW otherwise
 
@@ -29,16 +29,15 @@ See the License for the specific language governing permissions and limitations 
 // Configuration Parameters:
 #define BRIGHTNESS_IDLE 0
 #define BRIGHTNESS_MAX 255
+#define DELAY 2000 // ms
 
 //Global Variables:
-TM1637 tm1637(TM1637_DIO, TM1637_CLK);
+TM1637Display tm1637(TM1637_CLK, TM1637_DIO);
 
 
 void setup() {
   noInterrupts();
   Serial.begin(9600); //Initiate Serial communication.
-  tm1637.init(); // Initialize the screen.
-  tm1637.setBrightness(5);
   pinMode(SW, INPUT);
   pinMode(CLK, INPUT);
   pinMode(SW, INPUT);
@@ -59,17 +58,16 @@ void loop() {
   Serial.println(dt); 
   Serial.print("SW: "); 
   Serial.println(sw); 
-  tm1637.dispNumber((uint8_t)0);
-  delay(1000); 
-  tm1637.switchColon();
-  tm1637.dispNumber((uint8_t)1);
-  delay(1000); 
   digitalWrite(GREEN_LED, HIGH);
-  delay(500);
+  delay(DELAY);
   digitalWrite(GREEN_LED, LOW);
   digitalWrite(RED_LED, HIGH);
-  delay(500);
+  delay(DELAY);
   digitalWrite(RED_LED, LOW);
+  tm1637.setBrightness(BRIGHTNESS_MAX, true);
+  tm1637.showNumberDec(millis(), true);
+  delay(DELAY);
+  tm1637.setBrightness(BRIGHTNESS_IDLE, true);
 }
 
 void clkInterrupt(){
