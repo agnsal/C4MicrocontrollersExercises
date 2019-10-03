@@ -18,7 +18,6 @@ See the License for the specific language governing permissions and limitations 
 #define BUZZER 4
 #define HEATER 5
 
-
 // States:
 #define STDBY 0
 #define ON 1
@@ -28,16 +27,16 @@ See the License for the specific language governing permissions and limitations 
 #define HEAT_DEFAULT 5 // [0, 9]
 #define HEAT_IDLE 0
 #define HEAT_MAX 9
-#define COUNTDOWN_DEFAULT_SEC 1800 // seconds
-#define COUNTDOWN_INCR_SEC 1800 // seconds
-#define COUNTDOWN_MAX_SEC 36000 // seconds (has to be <= 65535)
+#define TIME_DEFAULT_SEC 1800 // seconds
+#define TIME_INCR_SEC 1800 // seconds
+#define TIME_MAX_SEC 36000 // seconds (has to be <= 65535)
 #define BUZZING_T_SEC 10 // seconds
-#define SEND_PERIOD_SEC 1
+#define SEND_PERIOD_SEC 1 // seconds
 
 //Global Variables:
 uint8_t state;
 uint8_t heat;
-unsigned long countdownMillis;
+unsigned long endTimeMillis;
 String ON_MSG = "ON";
 String OFF_MSG = "OFF";
 String HEAT_MSG = "L";
@@ -45,22 +44,24 @@ String TIME_MSG = "TIME";
 String MSG_DELIMITER = "\n";
 
 //Global Control Variables:
-bool msgReceived;
-String inputString;         // a String to hold incoming data
+bool stateChanged;
+bool buzzingTime;
+bool theEnd;
+String inputString; // A String to hold incoming data
 
 
 void setup() {
+  noInterrupts();
   cleanControlVariables();
-  heat = HEAT_DEFAULT;
-  countdownMillis = COUNTDOWN_DEFAULT_SEC * 1000;
+  heat = (uint8_t)HEAT_DEFAULT;
+  endTimeMillis = millis() + (unsigned long)TIME_DEFAULT_SEC * 1000;
   pinMode(BUZZER, OUTPUT);
   pinMode(HEATER, OUTPUT);
   // https://www.arduino.cc/en/Tutorial/SerialEvent
-  // initialize serial:
-  Serial.begin(9600);
-  // reserve 200 bytes for the inputString:
-  inputString.reserve(200);
-  stdby();
+  Serial.begin(9600); // // Initialize serial.
+  inputString.reserve(200); // Reserve 200 bytes for the inputString.
+  interrupts();
+  state = STDBY;
 }
 
 void loop() {
@@ -69,36 +70,68 @@ void loop() {
   performState();
 }
 
+/*
+  SerialEvent occurs whenever a new data comes in the hardware serial RX. This
+  routine is run between each time loop() runs, so using delay inside loop can
+  delay response. Multiple bytes of data may be available.
+*/
+void serialEvent() {
+  while (Serial.available()) {
+    // get the new byte:
+    char inChar = (char)Serial.read();
+    // add it to the inputString:
+    inputString += inChar;
+    // if the incoming character is a newline, set a flag so the main loop can
+    // do something about it:
+    if (inChar == '\n') {
+      stateChanged = true;
+    }
+  }
+}
+
 void cleanControlVariables(){
   inputString = "";
-  msgReceived = false;
+  stateChanged = false;
+  buzzingTime = false;
+  theEnd = false;
 }
 
 void updateState(){
-  if(inputString == OFF_MSG + MSG_DELIMITER){
+  if(buzzingTime){
+    state = BUZZING;
+    return;
+  }
+  else if(theEnd || inputString == OFF_MSG + MSG_DELIMITER){
     state = STDBY;
     return;
   }
   switch(state){
     case STDBY:
-      if(inputString == ON_MSG + MSG_DELIMITER){
+      if(stateChanged && inputString == ON_MSG + MSG_DELIMITER){
         state = ON;
       }
       break;
     case ON:
-      if(!msgReceived){
-        state = BUZZING;
-      }
-      else if(inputString == TIME_MSG + MSG_DELIMITER){
-        incrTime();
-      }
-      else if(inputString[0] == (char)"L"){
-        heat = (uint8_t)inputString[1];
+      if(stateChanged){
+        if(inputString == TIME_MSG + MSG_DELIMITER){
+          incrTime();
+        }
+        else if(inputString[0] == 'L'){
+          heat = (uint8_t)inputString[1] - 48; // Char to int
+        }  
       }
       break;
     case BUZZING:
-      state = STDBY;
-      break; 
+      if(stateChanged){
+        if(inputString == TIME_MSG + MSG_DELIMITER ){
+          incrTime();
+          state = ON;
+        }
+        else if(inputString[0] == (char)"L"){
+          state = ON;
+        }
+      }
+    break;
   }
 }
 
@@ -116,96 +149,58 @@ void performState(){
   }
 }
 
-void heater_apply(uint8_t heat){
+void heater_apply(){
   if(heat == HEAT_IDLE){
     digitalWrite(HEATER, LOW);
     return;
   }
-  if(heat > 9){
-    heat = 9;
-  }
-  unsigned long activeTMillis = heat * 100;
   digitalWrite(HEATER, HIGH);
-  delay(activeTMillis);
+  delay(heat * 100);
   digitalWrite(HEATER, LOW);
-  delay(1000 - activeTMillis);
+  delay(1000 - heat * 100);
 }
 
-void stdby(){
-  state = STDBY;
-  heater_apply(HEAT_IDLE);
-  bool periodPast = false;
-  unsigned long periodStartMillis = millis();
-  while(Serial.available() && !msgReceived) {
-    if(Serial.availableForWrite() && (millis() - periodStartMillis >= SEND_PERIOD_SEC * 1000)){
-      Serial.print(OFF_MSG);
-      Serial.print(MSG_DELIMITER);
-      periodStartMillis = millis();
-    }
-    // get the new byte:
-    char inChar = (char)Serial.read();
-    // add it to the inputString:
-    inputString += inChar;
-    // if the incoming character is a newline, set a flag so the main loop can
-    // do something about it:
-    if (inChar == '\n') {
-      msgReceived = true;
-    }
+void incrTime(){
+  if(endTimeMillis <= ((unsigned long)(TIME_MAX_SEC - TIME_INCR_SEC)) * 1000){
+    endTimeMillis += (unsigned long)TIME_INCR_SEC * 1000;
   }
+}
+
+void stdby(){ // It doesn't contain cycles because they whould stop message receiving.
+  digitalWrite(HEATER, LOW);
+  Serial.print(OFF_MSG);
+  Serial.print(MSG_DELIMITER);
+  delay(SEND_PERIOD_SEC * 1000);
 }
 
 void on(){
-  state = ON;
-  unsigned long startTimeMillis = millis();
-  unsigned long periodStartMillis = startTimeMillis;
-  while(Serial.available() && !msgReceived && (millis() - startTimeMillis <= countdownMillis - BUZZING_T_SEC * 1000)) {
-    heater_apply(heat);
-    countdownMillis -= millis() - startTimeMillis;
-    if(Serial.availableForWrite() && (millis() - periodStartMillis >= SEND_PERIOD_SEC * 1000)){
-      Serial.print(HEAT_MSG);
-      Serial.print(heat);
-      Serial.print(MSG_DELIMITER);
-      Serial.print(TIME_MSG);
-      Serial.print((int)(countdownMillis/(1000 * 60))); // mm
-      Serial.print(":");
-      Serial.print(((int)(countdownMillis/1000) % 60)); //ss
-      Serial.print(MSG_DELIMITER);
-      periodStartMillis = millis();
-    }
-    // get the new byte:
-    char inChar = (char)Serial.read();
-    // add it to the inputString:
-    inputString += inChar;
-    // if the incoming character is a newline, set a flag so the main loop can
-    // do something about it:
-    if (inChar == '\n') {
-      msgReceived = true;
-    }
-    countdownMillis -= millis() - startTimeMillis;
+  digitalWrite(BUZZER, LOW);
+  unsigned long remainingTimeMillis = endTimeMillis - millis();
+  if(remainingTimeMillis >= BUZZING_T_SEC * 1000){
+    heater_apply();
+    Serial.print(HEAT_MSG);
+    Serial.print(heat);
+    Serial.print(MSG_DELIMITER);
+    Serial.print(TIME_MSG);
+    Serial.print(remainingTimeMillis/ 60000); // mm
+    Serial.print(":");
+    Serial.print((remainingTimeMillis / 1000) % 60); //ss
+    Serial.print(MSG_DELIMITER);
+    delay(SEND_PERIOD_SEC * 1000);
+    remainingTimeMillis = endTimeMillis - millis();
+  }
+  else{
+    buzzingTime = true;
   }
 }
 
 void buzzing(){
-  state = BUZZING;
-  unsigned long startTimeMillis = millis();
   digitalWrite(BUZZER, HIGH);
-  while(Serial.available() && !msgReceived && (millis() - startTimeMillis <= countdownMillis)) {
-    heater_apply(heat);
-    // get the new byte:
-    char inChar = (char)Serial.read();
-    // add it to the inputString:
-    inputString += inChar;
-    // if the incoming character is a newline, set a flag so the main loop can
-    // do something about it:
-    if (inChar == '\n') {
-      msgReceived = true;
-    }
-    countdownMillis -= millis() - startTimeMillis;
+  if(millis() <= endTimeMillis){
+    heater_apply();
   }
-}
-
-void incrTime(){
-  if(countdownMillis <= (COUNTDOWN_MAX_SEC - COUNTDOWN_INCR_SEC) * 1000){
-    countdownMillis += COUNTDOWN_INCR_SEC * 1000;
+  else{
+    digitalWrite(BUZZER, LOW);
+    theEnd = true; 
   }
 }
