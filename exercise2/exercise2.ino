@@ -12,7 +12,7 @@ an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express o
 See the License for the specific language governing permissions and limitations under the License
 */
 
-//#include <TM1637.h> // Not used for this exercise
+#include <TM1637Display.h> // https://github.com/avishorp/TM1637
 
 // Signals:
 #define BTN 4 // LOW when active, HIGH otherwise
@@ -22,8 +22,8 @@ See the License for the specific language governing permissions and limitations 
 #define HEATER 6 // HIGH when activated, LOW otherwise
 
 // Display Pins:
-// #define DISP_1 12 // Not used for this exercise
-// #define DISP_2 13 // Not used for this exercise
+#define TM1637_CLK 19
+#define TM1637_DIO 18
 
 // States:
 #define STDBY 0
@@ -36,9 +36,9 @@ See the License for the specific language governing permissions and limitations 
 #define BRIGHTNESS_IDLE 0
 #define BRIGHTNESS_MAX 255
 #define HEAT_DEFAULT 50 // %
-#define TOTAL_T_DEFAULT_SEC 1800 // seconds
-#define TOTAL_T_INCR_SEC 1800 // seconds
-#define TOTAL_T_MAX_SEC 36000 // seconds (has to be <= 65535)
+#define TIME_DEFAULT_SEC 1800 // seconds
+#define TIME_INCR_SEC 1800 // seconds
+#define TIME_MAX_SEC 36000 // seconds (has to be <= 65535)
 #define DISPLAY_ON_T_SEC 10 // seconds
 #define SHOW_T_SEC 2 // seconds
 #define BUZZING_T_SEC 10 // seconds
@@ -46,8 +46,8 @@ See the License for the specific language governing permissions and limitations 
 //Global Variables:
 uint8_t state;
 volatile uint8_t heat;
-unsigned long remainingTimeMillis;
-//TM1637 display(DISP_1, DISP_2); // Not used in this exercise
+unsigned long endTimeMillis;
+TM1637Display tm1637(TM1637_CLK, TM1637_DIO);
 
 //Global Control Variables:
 unsigned long btnPressedStartTMillis;
@@ -61,8 +61,8 @@ uint8_t dt;
 void setup() {
   noInterrupts();
   cleanControlVariables();
-  heat = HEAT_DEFAULT;
-  remainingTimeMillis = TOTAL_T_DEFAULT_SEC * 1000;
+  heat = (uint8_t)HEAT_DEFAULT;
+  endTimeMillis = millis() + (unsigned long)TIME_DEFAULT_SEC * 1000;
   pinMode(BTN, INPUT);
   pinMode(CLK, INPUT);
   pinMode(DT, INPUT);
@@ -77,6 +77,7 @@ void setup() {
 void loop() {
   updateState();
   cleanControlVariables();
+  Serial.println(state);
   performState();
 }
 
@@ -86,7 +87,7 @@ void cleanControlVariables(){
   stateChanged = false;
   clkDtRotation = false;
   clk = digitalRead(CLK);
-  dt = digitalRead(dt);
+  dt = digitalRead(DT);
 }
 
 void updateState(){
@@ -150,15 +151,17 @@ void performState(){
 }
 
 void setBrightness(uint8_t bright){
-  // TODO
+  tm1637.setBrightness(bright, true);
 }
 
 void show_duty(uint8_t level){
-  // TODO
+  tm1637.showNumberDec(level, true);
+  delay(SHOW_T_SEC * 1000);
 }
 
 void show_time(uint16_t sec){
-  // TODO
+  tm1637.showNumberDec(sec, true);
+  delay(SHOW_T_SEC * 1000);
 }
 
 
@@ -166,7 +169,9 @@ void stdby(){
   digitalWrite(BUZZER, LOW);
   digitalWrite(HEATER, LOW);
   setBrightness((uint8_t)BRIGHTNESS_IDLE);
-  while(!stateChanged);
+  while(!stateChanged){
+    checkBtn();
+  }
 }
 
 void rotationInterrupt(){
@@ -175,8 +180,8 @@ void rotationInterrupt(){
 }
 
 void incrTime(){
-  if(remainingTimeMillis <= (TOTAL_T_MAX_SEC - TOTAL_T_INCR_SEC) * 1000){
-    remainingTimeMillis += TOTAL_T_INCR_SEC * 1000;
+  if(endTimeMillis <= (unsigned long)(TIME_MAX_SEC - TIME_INCR_SEC) * 1000){
+    endTimeMillis += (unsigned long)TIME_INCR_SEC * 1000;
   }
 }
 
@@ -234,49 +239,44 @@ void applyHeat(){
 
 bool checkBtn(){
   bool pressed = false;
-  if(!digitalRead(BTN)){ // If BTN is LOW = active
+  if(digitalRead(BTN) == LOW){ // If BTN is LOW = active
     pressed = true;
     btnPressedStartTMillis = millis();
-    while(!digitalRead(BTN));
+    while(digitalRead(BTN) == LOW);
     btnPressedEndTMillis = millis();
   }
   return pressed;
 }
 
 void displayOn(){
-  unsigned long startTimeMillis = millis();
+  unsigned long displayOnEndTimeMillis = millis() + ((unsigned long)DISPLAY_ON_T_SEC * 1000);
   unsigned long countdownMillis;
   setBrightness((uint8_t)BRIGHTNESS_MAX);
   show_duty(heat);
   while(!stateChanged){ // While stateChange is false
-    remainingTimeMillis -= millis();
-    show_time((uint16_t)countdownMillis * 1000);
+    show_time((uint16_t)(((unsigned long)endTimeMillis - millis()) / 1000));
     applyHeat();
-    if(checkBtn || millis() - startTimeMillis > DISPLAY_ON_T_SEC * 1000){ // If btn has been pressed or spent time is more than DISPLAY_ON_T_SEC * 1000
+    if(checkBtn || millis() >= (unsigned long)displayOnEndTimeMillis){ // If btn has been pressed or spent time is more than DISPLAY_ON_T_SEC * 1000
       stateChanged = true;
     }
   }
 }
 
 void displayOff(){
-  unsigned long startTimeMillis = millis();
   setBrightness((uint8_t)BRIGHTNESS_IDLE);
   while(!stateChanged){
     applyHeat();
-    remainingTimeMillis -= millis();
-    if(checkBtn || remainingTimeMillis <= BUZZING_T_SEC * 1000){ // If it's buzzing time
+    if(checkBtn || millis() >= endTimeMillis - (unsigned long)BUZZING_T_SEC * 1000){ // If it's buzzing time
       stateChanged = true;
     }
   }
 }
 
 void buzzing(){
-  unsigned long startTimeMillis = millis();
   digitalWrite(BUZZER, HIGH);
   while(!stateChanged){
     applyHeat();
-    remainingTimeMillis -= millis();
-    if(checkBtn || remainingTimeMillis <= 0){ // If it's end time
+    if(checkBtn ||millis() >= endTimeMillis){ // If it's end time
       stateChanged = true;
       digitalWrite(BUZZER, LOW);
     }
