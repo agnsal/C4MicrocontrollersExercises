@@ -62,7 +62,6 @@ void setup() {
   noInterrupts();
   cleanControlVariables();
   heat = (uint8_t)HEAT_DEFAULT;
-  endTimeMillis = millis() + (unsigned long)TIME_DEFAULT_SEC * 1000;
   pinMode(BTN, INPUT);
   pinMode(CLK, INPUT);
   pinMode(DT, INPUT);
@@ -171,6 +170,7 @@ void stdby(){
   while(!stateChanged){
     checkBtn();
   }
+  endTimeMillis = millis() + (unsigned long)TIME_DEFAULT_SEC * 1000;
 }
 
 void rotationInterrupt(){
