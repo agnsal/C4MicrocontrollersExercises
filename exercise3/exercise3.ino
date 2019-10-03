@@ -54,7 +54,6 @@ void setup() {
   noInterrupts();
   cleanControlVariables();
   heat = (uint8_t)HEAT_DEFAULT;
-  endTimeMillis = millis() + (unsigned long)TIME_DEFAULT_SEC * 1000;
   pinMode(BUZZER, OUTPUT);
   pinMode(HEATER, OUTPUT);
   // https://www.arduino.cc/en/Tutorial/SerialEvent
@@ -171,6 +170,7 @@ void stdby(){ // It doesn't contain cycles because they whould stop message rece
   Serial.print(OFF_MSG);
   Serial.print(MSG_DELIMITER);
   delay(SEND_PERIOD_SEC * 1000);
+  endTimeMillis = millis() + (unsigned long)TIME_DEFAULT_SEC * 1000;
 }
 
 void on(){
