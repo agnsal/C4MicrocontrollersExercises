@@ -41,8 +41,8 @@ void setup() {
   pinMode(SW, INPUT);
   pinMode(CLK, INPUT);
   pinMode(SW, INPUT);
-  pinMode(RED_LED, OUTPUT);
-  pinMode(GREEN_LED, OUTPUT);
+  pinMode(RED_LED, OUTPUT); // It corresponds to: DDRD |= _BV(DDD6); // DDRx |= _BV(DDxn), in this case: Port D 6th pin as output.
+  pinMode(GREEN_LED, OUTPUT); // It corresponds to: DDRD |= _BV(DDD5);
   attachInterrupt(digitalPinToInterrupt(CLK), clkInterrupt, CHANGE);
   attachInterrupt(digitalPinToInterrupt(DT), dtInterrupt, CHANGE);
   interrupts();
@@ -58,12 +58,12 @@ void loop() {
   Serial.println(dt); 
   Serial.print("SW: "); 
   Serial.println(sw); 
-  digitalWrite(GREEN_LED, HIGH);
+  digitalWrite(GREEN_LED, HIGH); // It corresponds to: PORTD |= _BV(PORTD5);
+  delay(DELAY); // It corresponds to: _delay_ms(DELAY);
+  digitalWrite(GREEN_LED, LOW); // It corresponds to: PORTD &= ~_BV(PORTD5);
+  digitalWrite(RED_LED, HIGH); // It corresponds to: PORTD |= _BV(PORTD6);
   delay(DELAY);
-  digitalWrite(GREEN_LED, LOW);
-  digitalWrite(RED_LED, HIGH);
-  delay(DELAY);
-  digitalWrite(RED_LED, LOW);
+  digitalWrite(RED_LED, LOW); // It corresponds to: PORTD &= ~_BV(PORTD6);
   tm1637.setBrightness(BRIGHTNESS_MAX, true);
   tm1637.showNumberDec(millis(), true);
   delay(DELAY);
