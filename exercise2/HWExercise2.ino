@@ -37,7 +37,7 @@ See the License for the specific language governing permissions and limitations 
 #define BRIGHTNESS_IDLE 0
 #define BRIGHTNESS_MAX 255
 #define HEAT_DEFAULT 50 // %
-#define TIME_DEFAULT_SEC 30 // seconds
+#define TIME_DEFAULT_SEC 1800 // seconds
 #define TIME_INCR_SEC 1800 // seconds
 #define TIME_MAX_SEC 6000 // seconds
 #define DISPLAY_ON_T_SEC 10 // seconds
