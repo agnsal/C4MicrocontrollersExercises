@@ -38,9 +38,9 @@ TM1637Display tm1637(TM1637_CLK, TM1637_DIO);
 void setup() {
   noInterrupts();
   Serial.begin(9600); //Initiate Serial communication.
-  pinMode(SW, INPUT);
-  pinMode(CLK, INPUT);
-  pinMode(SW, INPUT);
+  pinMode(SW, INPUT_PULLUP);
+  pinMode(CLK, INPUT_PULLUP);
+  pinMode(SW, INPUT_PULLUP);
   pinMode(RED_LED, OUTPUT); // It corresponds to: DDRD |= _BV(DDD6); // DDRx |= _BV(DDxn), in this case: Port D 6th pin as output.
   pinMode(GREEN_LED, OUTPUT); // It corresponds to: DDRD |= _BV(DDD5);
   attachInterrupt(digitalPinToInterrupt(CLK), clkInterrupt, CHANGE);
