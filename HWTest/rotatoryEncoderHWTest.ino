@@ -61,3 +61,7 @@ void printSignals(){
   Serial.print("SW = ");
   Serial.println(digitalRead(SW));
 }
+
+// The resulting sequence is:
+// Clockwise Rotation: 00 - 10 - 11 - 01 - 00 ...
+// Counterclockwise rotation is the same, but order is inverted.
