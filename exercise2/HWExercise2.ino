@@ -207,6 +207,10 @@ void incrTime(){
   if(endTimeMillis <= (unsigned long)(TIME_MAX_SEC - TIME_INCR_SEC) * 1000){
     endTimeMillis += (unsigned long)TIME_INCR_SEC * 1000;
   }
+  else{
+    Serial.println("Max time reached");
+    endTimeMillis = (unsigned long)TIME_MAX_SEC * 1000;
+  }
 }
 
 void changeHeat(uint8_t newClk, uint8_t newDt){
