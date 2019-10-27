@@ -255,7 +255,7 @@ void displayOn(){
   while(!stateChanged){ // While stateChange is false
     show_time((uint16_t)(((unsigned long)endTimeMillis - millis()) / 1000));
     applyHeat();
-    if(checkBtn || millis() >= (unsigned long)displayOnEndTimeMillis){ // If btn has been pressed or spent time is more than DISPLAY_ON_T_SEC * 1000
+    if(checkBtn() || millis() >= (unsigned long)displayOnEndTimeMillis){ // If btn has been pressed or spent time is more than DISPLAY_ON_T_SEC * 1000
       stateChanged = true;
     }
   }
@@ -265,7 +265,7 @@ void displayOff(){
   setBrightness((uint8_t)BRIGHTNESS_IDLE);
   while(!stateChanged){
     applyHeat();
-    if(checkBtn || millis() >= endTimeMillis - (unsigned long)BUZZING_T_SEC * 1000){ // If button has been pressed or it's buzzing time
+    if(checkBtn() || millis() >= endTimeMillis - (unsigned long)BUZZING_T_SEC * 1000){ // If button has been pressed or it's buzzing time
       stateChanged = true;
     }
   }
@@ -275,7 +275,7 @@ void buzzing(){
   digitalWrite(BUZZER, HIGH);
   while(!stateChanged){
     applyHeat();
-    if(checkBtn ||millis() >= endTimeMillis){ // If button has been pressed or it's end time
+    if(checkBtn() ||millis() >= endTimeMillis){ // If button has been pressed or it's end time
       stateChanged = true;
       digitalWrite(BUZZER, LOW);
     }
