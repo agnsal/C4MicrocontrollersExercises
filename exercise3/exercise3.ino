@@ -166,6 +166,7 @@ void incrTime(){
 }
 
 void stdby(){ // It doesn't contain cycles because they whould stop message receiving.
+  digitalWrite(BUZZER, LOW);
   digitalWrite(HEATER, LOW);
   Serial.print(OFF_MSG);
   Serial.print(MSG_DELIMITER);
