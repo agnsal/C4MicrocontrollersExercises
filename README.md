@@ -1,5 +1,6 @@
 # C4MicrocontrollersExercises
 Some C for Microcontrollers exercises (performed on Arduino Nano).
+The exercises' texts have been taken from Luigi Pomante Embedded System Course material (http://www.pomante.net/sito_gg/index.htm).
 
 
 ## What this project is
